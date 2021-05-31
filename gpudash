@@ -1,0 +1,200 @@
+#!/home/jdh4/bin/terminal-env/bin/python
+
+# standard library
+import sys
+import os
+os.environ['OMP_NUM_THREADS'] = "1"
+import argparse
+import textwrap
+import json
+import subprocess
+from functools import partial
+from glob import glob
+from datetime import datetime
+from socket import gethostname
+# conda environment
+from blessed import Terminal
+
+# add white space with text in the center
+def center(maxlen, txt):
+  n = len(txt)
+  if n > maxlen: txt = txt[:maxlen]
+  pre  = " " * int(0.5 * (maxlen - n))
+  post = " " * (maxlen - n - len(pre))
+  return pre + txt + post
+
+def leftpad(txt):
+  n = len(txt)
+  return " " * (maxnode - n) + txt
+
+# get list of nodes while ignoring those offline
+def get_nodes(all_nodes, cmd):
+  try:
+    output = subprocess.run(cmd, capture_output=True, shell=True, timeout=3)
+    lines = output.stdout.decode("utf-8").split('\n')
+  except:
+    return all_nodes
+  else:
+    nodes = []
+    for line in lines:
+      if line and not any([term in line for term in ["drain", "down", "boot"]]):
+        nodes.append(line.split()[0])
+    return nodes
+
+def colorize(user, util):
+  if user == "OFFLINE": return padding(user)
+  text = f"{user}:{util}"
+  if text == "root:0":
+    return term.on_gray + term.black + padding("IDLE") + term.normal
+  util = int(util)
+  white = term.color_rgb(255,255,255)
+  if util == 0:
+    return term.on_black + white + padding(text) + term.normal
+  elif util < 25:
+    return term.on_blue + white + padding(text) + term.normal
+  elif util < 50:
+    return term.on_cyan + term.black + padding(text) + term.normal
+  elif util < 75:
+    return term.on_color_rgb(255,165,0) + term.black + padding(text) + term.normal
+  elif util <= 100:
+    return term.on_color_rgb(255,0,0) + white + padding(text) + term.normal
+  else:
+    return padding(text)
+
+def construct_dashboard():
+  s = "\n"
+  day_date = str(datetime.now().strftime("%a %b %-d"))
+  text = f"{title} UTILIZATION ({day_date})"
+  total_width = chars_per_cell * len(times) + maxnode + 3
+  s += center(total_width, text)
+  s += "\n\n"
+  s += " " * (maxnode + 3)
+  for t in times:
+    s += padding(t)
+  s += "\n"
+  global founduser_all_nodes
+  founduser_all_nodes = False
+  for node in nodelist:
+    rows = ""
+    founduser_per_node = False
+    offline = 0
+    for gpu_index in [str(i) for i in range(gpus_per_node)]:
+      rows += leftpad(node) if gpu_index == "0" else " " * maxnode
+      rows += " " + gpu_index + " "
+      for j, t in enumerate(times):
+        username, util = stats[(t, node, gpu_index)]
+        if args.netid == username:
+          founduser_per_node = True
+          founduser_all_nodes = True
+        if j == len(times) - 1 and username == "OFFLINE": offline += 1
+        rows += colorize(username, util)
+      rows += "\n"
+    if (args.netid == "-1" or founduser_per_node) and offline < gpus_per_node:
+      s += rows
+  if args.netid != "-1" and not founduser_all_nodes:
+    s += center(total_width, f"No GPU jobs found for {args.netid}\n")
+  return s
+
+def legend():
+  offset = " " * (maxnode + 3)
+  gu = "   " + term.normal  + " GPU utilization is "
+  s = ""
+  s += offset + term.on_black + gu + "0%\n"
+  s += offset + term.on_blue  + gu + "0-25%\n"
+  s += offset + term.on_cyan  + gu + "25-50%\n"
+  s += offset + term.on_color_rgb(255,165,0)  + gu + "50-75%\n"
+  s += offset + term.on_color_rgb(255,0,0)    + gu + "75-100%\n"
+  return s
+
+if __name__ == "__main__":
+
+  psr = argparse.ArgumentParser(
+    description="GPU utilization dashboard for the last hour",
+    formatter_class=argparse.RawDescriptionHelpFormatter,
+    epilog=textwrap.dedent('''
+    Utilization is the percentage of time during a sampling window (< 1 second) that
+    a kernel was running on the GPU. The format of each entry in the dashboard is
+    username:utilization (e.g., aturing:90). Utilization varies between 0 and 100%.
+
+    Examples:
+
+      Show dashboard for the user aturing:
+        $ gpudash -u aturing
+
+      Show dashboard for all users without displaying legend:
+        $ gpudash -n
+    '''))
+  psr.add_argument('-u', type=str, action='store', dest='netid',
+    default='-1', help='create dashboard for a single user')
+  psr.add_argument('-n', '--no-legend', action='store_true', help='flag to hide the legend')
+  args = psr.parse_args()
+  show_legend = not args.no_legend
+
+  # load cluster-specific info
+  host = gethostname()
+  if host.startswith("della-gpu"):
+    title = "DELLA-GPU"
+    comp_nodes_base = "della-i14g"
+    all_nodes = [comp_nodes_base + str(g) for g in range(1, 21)]
+    nodelist = get_nodes(all_nodes, "timeout 3 sinfo -p gpu --Node -h")
+    gpus_per_node = 2
+    maxnode = max(map(len, nodelist))
+    SBASE = "/scratch/.gpudash"
+  elif host.startswith("tigercpu") or host.startswith("tigergpu"):
+    title = "TigerGPU"
+    comp_nodes_base = "tiger-i"
+    all_nodes = [comp_nodes_base + str(i) + 'g' + str(j + 1) for i in range(19, 24) for j in range(16)]
+    nodelist = get_nodes(all_nodes, "timeout 3 sinfo -p gpu --Node -h")
+    gpus_per_node = 4
+    maxnode = max(map(len, nodelist))
+    SBASE = "/scratch/.gpudash"
+  elif host.startswith("traverse"):
+    title = "TRAVERSE"
+    comp_nodes_base = "traverse-k0"
+    all_nodes = [comp_nodes_base + str(i) + 'g' + str(j + 1) for i in [1, 2, 4, 5] for j in range(12)]
+    all_nodes.remove("traverse-k05g11"); all_nodes.remove("traverse-k05g12") 
+    nodelist = get_nodes(all_nodes, "timeout 3 sinfo --Node -h")
+    gpus_per_node = 4
+    maxnode = max(map(len, nodelist))
+    SBASE = "/scratch/.gpudash"
+  else:
+    print(f"{host} is unknown. Try running on della-gpu, tigercpu, tigergpu or traverse. Exiting ...")
+    sys.exit(0)
+
+  # read column files
+  column_files = sorted(glob(f"{SBASE}/column.*"))
+  if column_files == []:
+    print(f"No column files were found in {SBASE}. Exiting ...")
+    sys.exit(0)
+
+  #{"timestamp": "1622344202", "host": "della-i14g15", "index": "0", "user": "OFFLINE", "util": "N/A", "jobid": "N/A"}
+  #{"timestamp": "1622344202", "host": "della-i14g15", "index": "1", "user": "OFFLINE", "util": "N/A", "jobid": "N/A"}
+  #{"timestamp": "1622344202", "host": "della-i14g19", "index": "0", "user": "root", "util": "0", "jobid": "0"}
+  #{"timestamp": "1622344202", "host": "della-i14g19", "index": "1", "user": "root", "util": "0", "jobid": "0"}
+  #{"timestamp": "1622344202", "host": "della-i14g20", "index": "0", "user": "gdolsten", "util": "40", "jobid": "34792230"}
+  #{"timestamp": "1622344202", "host": "della-i14g20", "index": "1", "user": "root", "util": "0", "jobid": "0"}
+
+  # create dictionary from column files
+  stats = {}
+  times = []
+  for column_file in column_files:
+    with open(column_file) as f:
+      for i, line in enumerate(f.readlines()):
+        d = json.loads(line)
+        if i == 0:
+          timestamp = d["timestamp"]
+          twelve_hour = datetime.fromtimestamp(int(timestamp)).strftime('%-I:%M %p')
+          times.append(twelve_hour)
+        stats[(twelve_hour, d["host"], d["index"])] = (d["user"], d["util"])
+
+  # construct and print dashboard
+  term = Terminal()
+  chars_per_cell = 14
+  padding = partial(center, chars_per_cell)
+  print(construct_dashboard())
+  if args.netid == "-1":
+    if show_legend:
+      print(legend())
+  else:
+    if show_legend and founduser_all_nodes:
+      print(legend())
