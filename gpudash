@@ -61,17 +61,19 @@ def colorize(user, util):
   else:
     return padding(text)
 
-def construct_dashboard():
+def construct_dashboard(host):
   s = "\n"
   day_date = str(datetime.now().strftime("%a %b %-d"))
   text = f"{title} UTILIZATION ({day_date})"
   total_width = chars_per_cell * len(times) + maxnode + 3
   s += center(total_width, text)
   s += "\n\n"
+  # time labels at top of dashboard
   s += " " * (maxnode + 3)
   for t in times:
     s += padding(t)
   s += "\n"
+  # main dashboard
   global founduser_all_nodes
   founduser_all_nodes = False
   for node in nodelist:
@@ -91,6 +93,13 @@ def construct_dashboard():
       rows += "\n"
     if (args.netid == "-1" or founduser_per_node) and offline < gpus_per_node:
       s += rows
+  # time labels at bottom of dashboard
+  if not host.startswith("della") and args.netid == "-1":
+    s += " " * (maxnode + 3)
+    for t in times:
+      s += padding(t)
+    s += "\n"
+  # no jobs found for single user
   if args.netid != "-1" and not founduser_all_nodes:
     s += center(total_width, f"No GPU jobs found for {args.netid}\n")
   return s
@@ -191,7 +200,7 @@ if __name__ == "__main__":
   term = Terminal()
   chars_per_cell = 14
   padding = partial(center, chars_per_cell)
-  print(construct_dashboard())
+  print(construct_dashboard(host))
   if args.netid == "-1":
     if show_legend:
       print(legend())
