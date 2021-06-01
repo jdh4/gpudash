@@ -1,9 +1,6 @@
 # gpudash
 
-The `gpudash` command displays a GPU utilization dashboard over the last hour.
-
-
-To get started:
+The `gpudash` command displays a GPU utilization dashboard over the last hour:
 
 ```
 $ gpudash -h
