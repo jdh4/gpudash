@@ -55,6 +55,34 @@ timestamp_uid    = str(max([int(filename.split(".")[1]) for filename in glob(f"{
 timestamp_jobid  = str(max([int(filename.split(".")[1]) for filename in glob(f"{BASE}/data/jobid.*")]))
 assert (timestamp == timestamp_uid and timestamp == timestamp_jobid)
 
+def getent_passwd(uid):
+  cmd = f"getent passwd {uid}"
+  output = subprocess.run(cmd, capture_output=True, shell=True, timeout=3)
+  line = output.stdout.decode("utf-8")
+  if line.count(":") > 0:
+    username = line.split(":")[0]
+    uid2user[uid] = username
+    return username
+  else:
+    return "UNKNOWN"
+
+def update(stats, prop, idx):
+  with open(f"{BASE}/data/{prop}.{timestamp}") as fp:
+    data = json.load(fp)
+  if data["status"] == "success":
+    for result in data["data"]["result"]:
+      hostname = result["metric"]["instance"].split(":")[0]
+      if hostname.startswith(comp_nodes_base) and hostname in nodelist:
+        gpu_index = result["metric"]["minor_number"]
+        value = result["value"][1]
+        if prop == "uid":
+          value = uid2user[value] if value in uid2user else getent_passwd(value)
+        x = [stats[(hostname, gpu_index)][0], \
+             stats[(hostname, gpu_index)][1], \
+             stats[(hostname, gpu_index)][2]]
+        x[idx] = value
+        stats[(hostname, gpu_index)] = tuple(x)
+
 ###########################################################################
 # nvidia_gpu_duty_cycle
 ###########################################################################
@@ -74,16 +102,8 @@ assert (timestamp == timestamp_uid and timestamp == timestamp_jobid)
 #           "name":"NVIDIA A100-PCIE-40GB",
 #           "uuid":"GPU-3348bc6f-b6b9-6190-9542-d7e98c64b5e8"},
 #"value":[1621785602.02,"0"]}
-
-with open(f"{BASE}/data/util.{timestamp}") as fp:
-  data = json.load(fp)
-if data["status"] == "success":
-  for result in data["data"]["result"]:
-    hostname = result["metric"]["instance"].split(":")[0]
-    if hostname.startswith(comp_nodes_base) and hostname in nodelist:
-      gpu_index = result["metric"]["minor_number"]
-      util = result["value"][1]
-      stats[(hostname, gpu_index)] = (stats[(hostname, gpu_index)][0], util, stats[(hostname, gpu_index)][2])
+###########################################################################
+update(stats, "util",  1)
 
 ###########################################################################
 # nvidia_gpu_jobUid
@@ -104,28 +124,8 @@ if data["status"] == "success":
 #           "name":"NVIDIA A100-PCIE-40GB",
 #           "uuid":"GPU-3348bc6f-b6b9-6190-9542-d7e98c64b5e8"},
 #"value":[1621785602.064,"0"]}
-
-def getent_passwd(uid):
-  cmd = f"getent passwd {uid}"
-  output = subprocess.run(cmd, capture_output=True, shell=True, timeout=3)
-  line = output.stdout.decode("utf-8")
-  if line.count(":") > 0:
-    username = line.split(":")[0]
-    uid2user[uid] = username
-    return username
-  else:
-    return "UNKNOWN"
-
-with open(f"{BASE}/data/uid.{timestamp}") as fp:
-  data = json.load(fp)
-if data["status"] == "success":
-  for result in data["data"]["result"]:
-    hostname = result["metric"]["instance"].split(":")[0]
-    if hostname.startswith(comp_nodes_base) and hostname in nodelist:
-      gpu_index = result["metric"]["minor_number"]
-      uid = result["value"][1]
-      user = uid2user[uid] if uid in uid2user else getent_passwd(uid)
-      stats[(hostname, gpu_index)] = (user, stats[(hostname, gpu_index)][1], stats[(hostname, gpu_index)][2])
+###########################################################################
+update(stats, "uid",   0)
 
 ###########################################################################
 # nvidia_gpu_jobId
@@ -146,16 +146,8 @@ if data["status"] == "success":
 #           "name":"NVIDIA A100-PCIE-40GB",
 #           "uuid":"GPU-3348bc6f-b6b9-6190-9542-d7e98c64b5e8"},
 #"value":[1622319602.396,"0"]}
-
-with open(f"{BASE}/data/jobid.{timestamp}") as fp:
-  data = json.load(fp)
-if data["status"] == "success":
-  for result in data["data"]["result"]:
-    hostname = result["metric"]["instance"].split(":")[0]
-    if hostname.startswith(comp_nodes_base) and hostname in nodelist:
-      gpu_index = result["metric"]["minor_number"]
-      jobid = result["value"][1]
-      stats[(hostname, gpu_index)] = (stats[(hostname, gpu_index)][0], stats[(hostname, gpu_index)][1], jobid)
+###########################################################################
+update(stats, "jobid", 2)
 
 ###########################################################################
 # roll column files and write output
