@@ -15,20 +15,20 @@ if host.startswith("della"):
   comp_nodes_base = "della-i14g"
   nodelist = [comp_nodes_base + str(g) for g in range(1, 21)]
   gpus_per_node = 2
-  BASE = "/home/jdh4/bin/a100"
+  BASE = "/home/jdh4/bin/gpus"
   SBASE = "/scratch/.gpudash"
 elif host.startswith("tigercpu") or host.startswith("tigergpu"):
   comp_nodes_base = "tiger-i"
   nodelist = [comp_nodes_base + str(i) + 'g' + str(j + 1) for i in range(19, 24) for j in range(16)]
   gpus_per_node = 4
-  BASE = "/home/jdh4/bin/p100"
+  BASE = "/home/jdh4/bin/gpus"
   SBASE = "/scratch/.gpudash"
 elif host.startswith("traverse"):
   comp_nodes_base = "traverse-k0"
   nodelist = [comp_nodes_base + str(i) + 'g' + str(j + 1) for i in [1, 2, 4, 5] for j in range(12)]
   nodelist.remove("traverse-k05g11"); nodelist.remove("traverse-k05g12")
   gpus_per_node = 4
-  BASE = "/home/jdh4/bin/v100"
+  BASE = "/home/jdh4/bin/gpus"
   SBASE = "/scratch/.gpudash"
 else:
   print(f"{host} is unknown. Try running on della-gpu, tigercpu, tigergpu or traverse. Exiting ...")
