@@ -1,6 +1,5 @@
 #!/usr/bin/python3
 
-# standard library
 import sys
 import os
 os.environ['OMP_NUM_THREADS'] = "1"
@@ -10,9 +9,21 @@ import json
 import subprocess
 from functools import partial
 from glob import glob
-from datetime import datetime
+from datetime import datetime, timedelta
 from socket import gethostname
 from blessed import Terminal
+
+def second_tues_of_month(year, month):
+  """Return a date object for the second Tuesday of the current month."""
+  import calendar
+  c = calendar.Calendar(firstweekday=calendar.SUNDAY)
+  monthcal = c.monthdatescalendar(year, month)
+  all_tues_of_month = [day for week in monthcal for day in week if \
+                       day.weekday() == calendar.TUESDAY and \
+                       day.month == month]
+  second_tues = all_tues_of_month[1]
+  hours_24_clock, minutes = (6, 0)  # six AM
+  return datetime(second_tues.year, second_tues.month, second_tues.day, hours_24_clock, minutes)
 
 # add white space with text in the center
 def center(maxlen, txt):
@@ -29,7 +40,7 @@ def leftpad(txt):
 # get list of nodes while ignoring those offline
 def get_nodes(all_nodes, cmd):
   try:
-    output = subprocess.run(cmd, capture_output=True, shell=True, timeout=3)
+    output = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, check=True, timeout=3)
     lines = output.stdout.decode("utf-8").split('\n')
   except:
     return all_nodes
@@ -80,7 +91,12 @@ def construct_dashboard(host):
     founduser_per_node = False
     offline = 0
     for gpu_index in [str(i) for i in range(gpus_per_node)]:
-      rows += leftpad(node) if gpu_index == "0" else " " * maxnode
+      if gpu_index == "0":
+        rows += leftpad(node)
+      elif gpu_index == "1" and node in reserved_nodes:
+        rows += leftpad("(test QOS)  ")
+      else:
+        rows += " " * maxnode
       rows += " " + gpu_index + " "
       for j, t in enumerate(times):
         username, util = stats[(t, node, gpu_index)]
@@ -138,6 +154,16 @@ if __name__ == "__main__":
   args = psr.parse_args()
   show_legend = not args.no_legend
 
+  # exit if within 4 hours of downtime (which starts at 6 am) or before 2 pm
+  right_now = datetime.now()
+  downtime_6am = second_tues_of_month(right_now.year, right_now.month)
+  dt_seconds = (right_now - downtime_6am) / timedelta(seconds=1)
+  seconds_per_hour = 60 * 60
+  if (dt_seconds > -4 * seconds_per_hour) and (dt_seconds < 8 * seconds_per_hour):
+    print("\nThis command is not available due to downtime. Please try again after 2 PM:")
+    print("    https://researchcomputing.princeton.edu/support/knowledge-base/job-priority#downtime\n")
+    sys.exit(0)
+
   # load cluster-specific info
   host = gethostname()
   if host.startswith("della-gpu"):
@@ -148,6 +174,7 @@ if __name__ == "__main__":
     gpus_per_node = 2
     maxnode = max(map(len, nodelist))
     SBASE = "/scratch/.gpudash"
+    reserved_nodes = []
   elif host.startswith("tigercpu") or host.startswith("tigergpu"):
     title = "TigerGPU"
     comp_nodes_base = "tiger-i"
@@ -156,6 +183,7 @@ if __name__ == "__main__":
     gpus_per_node = 4
     maxnode = max(map(len, nodelist))
     SBASE = "/scratch/.gpudash"
+    reserved_nodes = []
   elif host.startswith("traverse"):
     title = "TRAVERSE GPU"
     comp_nodes_base = "traverse-k0"
@@ -165,6 +193,7 @@ if __name__ == "__main__":
     gpus_per_node = 4
     maxnode = max(map(len, nodelist))
     SBASE = "/scratch/.gpudash"
+    reserved_nodes = ["traverse-k05g" + str(i) for i in [1, 2, 3, 4]]
   else:
     print(f"{host} is unknown. Try running on della-gpu, tigercpu, tigergpu or traverse. Exiting ...")
     sys.exit(0)
