@@ -25,3 +25,7 @@ Examples:
   Show dashboard for all users without displaying legend:
     $ gpudash -n
 ```
+
+## How does it work?
+
+See this page: [https://github.com/jdh4/tigergpu_visualization](https://github.com/jdh4/tigergpu_visualization)
