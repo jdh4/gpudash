@@ -29,3 +29,8 @@ Examples:
 ## How does it work?
 
 See this page: [https://github.com/jdh4/tigergpu_visualization](https://github.com/jdh4/tigergpu_visualization)
+
+
+## Notes
+
+For `jdh4`, nothing lives in `/tigress/jdh4/python-devel` so use wget to push the code to della, tiger and traverse.
