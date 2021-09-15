@@ -20,6 +20,12 @@ if host.startswith("della"):
 elif host.startswith("tigercpu") or host.startswith("tigergpu"):
   comp_nodes_base = "tiger-i"
   nodelist = [comp_nodes_base + str(i) + 'g' + str(j + 1) for i in range(19, 24) for j in range(16)]
+  # start cryoem
+  nodelist_cryo = ["tiger-h" + str(i) + 'g' + str(j) for i in [19, 20, 21, 23, 24, 25, 26] for j in [1, 2]]
+  nodelist_cryo.append("tiger-i26g1")
+  nodelist_cryo.append("tiger-i26g2")
+  nodelist += nodelist_cryo
+  # end cryoem
   gpus_per_node = 4
   BASE = "/home/jdh4/bin/gpus"
   SBASE = "/scratch/.gpudash"
