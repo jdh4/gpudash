@@ -142,25 +142,36 @@ if __name__ == "__main__":
 
     Examples:
 
+      Show dashboard for all users:
+        $ gpudash
+
       Show dashboard for the user aturing:
         $ gpudash -u aturing
 
       Show dashboard for all users without displaying legend:
         $ gpudash -n
+ 
+      Show dashboard for the cryoem nodes:
+        $ gpudash -c
+
+      Show dashboard for the cryoem nodes for user aturing:
+        $ gpudash -c -u aturing
     '''))
   psr.add_argument('-u', type=str, action='store', dest='netid',
     default='-1', help='create dashboard for a single user')
   psr.add_argument('-n', '--no-legend', action='store_true', help='flag to hide the legend')
+  psr.add_argument('-c', '--cryoem',    action='store_true', help='flag to show cryoem nodes')
   args = psr.parse_args()
   show_legend = not args.no_legend
+  show_cryoem = args.cryoem
 
   # exit if within 4 hours of downtime (which starts at 6 am) or before 2 pm
   right_now = datetime.now()
   downtime_6am = second_tues_of_month(right_now.year, right_now.month)
   dt_seconds = (right_now - downtime_6am) / timedelta(seconds=1)
   seconds_per_hour = 60 * 60
-  if (dt_seconds > -4 * seconds_per_hour) and (dt_seconds < 8 * seconds_per_hour):
-    print("\nThis command is not available due to downtime. Please try again after 2 PM:")
+  if (dt_seconds > -4 * seconds_per_hour) and (dt_seconds < 6 * seconds_per_hour):
+    print("\nThis command is not available due to downtime. Please try again after 12 PM (noon):")
     print("    https://researchcomputing.princeton.edu/support/knowledge-base/job-priority#downtime\n")
     sys.exit(0)
 
@@ -175,11 +186,18 @@ if __name__ == "__main__":
     maxnode = max(map(len, nodelist))
     SBASE = "/scratch/.gpudash"
     reserved_nodes = []
-  elif host.startswith("tigercpu") or host.startswith("tigergpu"):
+    if show_cryoem: print("Warning: -c, --cryoem flag not valid on della-gpu")
+  elif host.startswith("tigercpu") or host.startswith("tigergpu") or host.startswith("tiger-cryoem"):
     title = "TigerGPU"
-    comp_nodes_base = "tiger-i"
-    all_nodes = [comp_nodes_base + str(i) + 'g' + str(j + 1) for i in range(19, 24) for j in range(16)]
-    nodelist = get_nodes(all_nodes, "timeout 3 sinfo -p gpu --Node -h")
+    comp_nodes_base = "tiger-"
+    if show_cryoem:
+      all_nodes = [comp_nodes_base + "h" + str(i) + 'g' + str(j) for i in [19, 20, 21, 23, 24, 25, 26] for j in [1, 2]]
+      all_nodes.append(comp_nodes_base + "i26g1")
+      all_nodes.append(comp_nodes_base + "i26g2")
+      nodelist = get_nodes(all_nodes, "timeout 3 sinfo -p cryoem --Node -h")
+    else:
+      all_nodes = [comp_nodes_base + "i" + str(i) + 'g' + str(j + 1) for i in range(19, 24) for j in range(16)]
+      nodelist = get_nodes(all_nodes, "timeout 3 sinfo -p gpu --Node -h")
     gpus_per_node = 4
     maxnode = max(map(len, nodelist))
     SBASE = "/scratch/.gpudash"
@@ -194,8 +212,9 @@ if __name__ == "__main__":
     maxnode = max(map(len, nodelist))
     SBASE = "/scratch/.gpudash"
     reserved_nodes = ["traverse-k05g" + str(i) for i in [1, 2, 3, 4]]
+    if show_cryoem: print("Warning: -c, --cryoem flag not valid on traverse")
   else:
-    print(f"{host} is unknown. Try running on della-gpu, tigercpu, tigergpu or traverse. Exiting ...")
+    print(f"{host} is unknown. Please use della-gpu, tigercpu, tigergpu, tiger-cryoem or traverse.")
     sys.exit(0)
 
   # read column files
