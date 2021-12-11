@@ -101,7 +101,7 @@ def construct_dashboard(host):
         if node in traverse_test_qos:
           rows += leftpad("(test QOS)  ")
         else:
-          rows += leftpad("(reserved)  ")
+          rows += leftpad("(reserved)")
       else:
         rows += " " * maxnode
       rows += " " + gpu_index + " "
