@@ -42,4 +42,4 @@ See this page: [https://github.com/jdh4/tigergpu_visualization](https://github.c
 
 ## Notes
 
-For `jdh4`, nothing lives in `/tigress/jdh4/python-devel` so use wget to push the code to della, tiger and traverse.
+For `jdh4`, nothing lives in `/tigress/jdh4/python-devel` so use wget to push the code to della, tiger and traverse. Added ssh key between della-gpu and della8 on Dec 11, 2021.
