@@ -3,7 +3,7 @@
 The `gpudash` command displays a GPU utilization dashboard for the last hour:
 
 ```
-usage: gpudash_ [-h] [-u NETID] [-n] [-c]
+usage: gpudash [-h] [-u NETID] [-n] [-c]
 
 GPU utilization dashboard for the last hour
 
