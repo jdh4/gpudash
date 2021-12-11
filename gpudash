@@ -43,14 +43,16 @@ def get_nodes(all_nodes, cmd):
     output = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, check=True, timeout=3)
     lines = output.stdout.decode("utf-8").split('\n')
   except:
-    return all_nodes
+    return (all_nodes, [])
   else:
     nodes = []
+    reserved = []
     for line in lines:
-      # "resv" is intentionally not included in list in next line
       if line and not any([term in line for term in ["drain", "down", "boot"]]):
         nodes.append(line.split()[0])
-    return nodes
+      if line and "resv" in line:
+        reserved.append(line.split()[0])
+    return (nodes, reserved)
 
 def colorize(user, util):
   if user == "OFFLINE": return padding(user)
@@ -84,6 +86,7 @@ def construct_dashboard(host):
   for t in times:
     s += padding(t)
   s += "\n"
+  traverse_test_qos = ["traverse-k05g" + str(i) for i in [1, 2, 3, 4]]
   # main dashboard
   global founduser_all_nodes
   founduser_all_nodes = False
@@ -95,7 +98,10 @@ def construct_dashboard(host):
       if gpu_index == "0":
         rows += leftpad(node)
       elif gpu_index == "1" and node in reserved_nodes:
-        rows += leftpad("(test QOS)  ")
+        if node in traverse_test_qos:
+          rows += leftpad("(test QOS)  ")
+        else:
+          rows += leftpad("(reserved)  ")
       else:
         rows += " " * maxnode
       rows += " " + gpu_index + " "
@@ -178,16 +184,15 @@ if __name__ == "__main__":
 
   # load cluster-specific info
   host = gethostname()
-  if host.startswith("della-gpu"):
+  if host.startswith("della-gpu") or host.startswith("della8"):
     title = "DELLA-GPU"
     comp_nodes_base = "della-i14g"
     all_nodes = [comp_nodes_base + str(g) for g in range(1, 21)]
-    nodelist = get_nodes(all_nodes, "timeout 3 sinfo -p gpu --Node -h")
+    nodelist, reserved_nodes = get_nodes(all_nodes, "timeout 3 sinfo -p gpu --Node -h")
     gpus_per_node = 2
     maxnode = max(map(len, nodelist))
     SBASE = "/scratch/.gpudash"
-    reserved_nodes = []
-    if show_cryoem: print("Warning: -c, --cryoem flag not valid on della-gpu")
+    if show_cryoem: print("Warning: -c, --cryoem flag not valid on della")
   elif host.startswith("tigercpu") or host.startswith("tigergpu") or host.startswith("tiger-cryoem"):
     title = "TigerGPU"
     comp_nodes_base = "tiger-"
@@ -195,24 +200,22 @@ if __name__ == "__main__":
       all_nodes = [comp_nodes_base + "h" + str(i) + 'g' + str(j) for i in [19, 20, 21, 23, 24, 25, 26] for j in [1, 2]]
       all_nodes.append(comp_nodes_base + "i26g1")
       all_nodes.append(comp_nodes_base + "i26g2")
-      nodelist = get_nodes(all_nodes, "timeout 3 sinfo -p cryoem --Node -h")
+      nodelist, reserved_nodes = get_nodes(all_nodes, "timeout 3 sinfo -p cryoem --Node -h")
     else:
       all_nodes = [comp_nodes_base + "i" + str(i) + 'g' + str(j + 1) for i in range(19, 24) for j in range(16)]
-      nodelist = get_nodes(all_nodes, "timeout 3 sinfo -p gpu --Node -h")
+      nodelist, reserved_nodes = get_nodes(all_nodes, "timeout 3 sinfo -p gpu --Node -h")
     gpus_per_node = 4
     maxnode = max(map(len, nodelist))
     SBASE = "/scratch/.gpudash"
-    reserved_nodes = []
   elif host.startswith("traverse"):
     title = "TRAVERSE GPU"
     comp_nodes_base = "traverse-k0"
     all_nodes = [comp_nodes_base + str(i) + 'g' + str(j + 1) for i in [1, 2, 4, 5] for j in range(12)]
     all_nodes.remove("traverse-k05g11"); all_nodes.remove("traverse-k05g12") 
-    nodelist = get_nodes(all_nodes, "timeout 3 sinfo --Node -h")
+    nodelist, reserved_nodes = get_nodes(all_nodes, "timeout 3 sinfo --Node -h")
     gpus_per_node = 4
     maxnode = max(map(len, nodelist))
     SBASE = "/scratch/.gpudash"
-    reserved_nodes = ["traverse-k05g" + str(i) for i in [1, 2, 3, 4]]
     if show_cryoem: print("Warning: -c, --cryoem flag not valid on traverse")
   else:
     print(f"{host} is unknown. Please use della-gpu, tigercpu, tigergpu, tiger-cryoem or traverse.")
