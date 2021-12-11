@@ -10,3 +10,5 @@ curl -s 'http://vigilant.sn17:8480/api/v1/query?query=nvidia_gpu_jobId'      > $
 find ${DATA} -type f -mmin +70 -exec rm -f {} \;
 
 /usr/licensed/anaconda3/2020.11/bin/python /home/jdh4/bin/gpus/extract.py
+
+scp -r /scratch/.gpudash jdh4@della8:/scratch/
