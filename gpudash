@@ -218,7 +218,7 @@ if __name__ == "__main__":
     SBASE = "/scratch/.gpudash"
     if show_cryoem: print("Warning: -c, --cryoem flag not valid on traverse")
   else:
-    print(f"{host} is unknown. Please use della-gpu, tigercpu, tigergpu, tiger-cryoem or traverse.")
+    print(f"{host} is unknown. Please use della-gpu, della8, tigercpu, tigergpu, tiger-cryoem or traverse.")
     sys.exit(0)
 
   # read column files
