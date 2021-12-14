@@ -11,4 +11,4 @@ find ${DATA} -type f -mmin +70 -exec rm -f {} \;
 
 /usr/licensed/anaconda3/2020.11/bin/python /home/jdh4/bin/gpus/extract.py
 
-scp -r /scratch/.gpudash jdh4@della8:/scratch/
+timeout 5 scp -r /scratch/.gpudash della8:/scratch/
