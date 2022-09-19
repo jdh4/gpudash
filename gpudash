@@ -48,7 +48,7 @@ def get_nodes(all_nodes, cmd):
     nodes = []
     reserved = []
     for line in lines:
-      if line and not any([term in line for term in ["drain", "down", "boot"]]):
+      if line and not any([term in line for term in ["drain", "down", "boot"]]) and line.split()[0] in all_nodes:
         nodes.append(line.split()[0])
       if line and "resv" in line:
         reserved.append(line.split()[0])
@@ -186,27 +186,29 @@ if __name__ == "__main__":
   host = gethostname()
   if host.startswith("della-gpu") or host.startswith("della8"):
     title = "DELLA-GPU"
-    comp_nodes_base = "della-i14g"
-    all_nodes = [comp_nodes_base + str(g) for g in range(1, 21)]
-    nodelist, reserved_nodes = get_nodes(all_nodes, "timeout 3 sinfo -p gpu --Node -h")
-    gpus_per_node = 2
+    comp_nodes_base = "della-"
+    if show_cryoem:
+      all_nodes = [comp_nodes_base + "l0" + str(h) + "g" + str(g) for h in range(6, 10) for g in range(1, 10)]
+      all_nodes.remove("della-l07g1")
+      all_nodes.append("della-l06g10")
+      all_nodes.append("della-l06g11")
+      nodelist, reserved_nodes = get_nodes(all_nodes, "timeout 3 sinfo -p cryoem --Node -h")
+      gpus_per_node = 4
+    else:
+      all_nodes = [comp_nodes_base + "i14g" + str(g) for g in range(1, 21)]
+      nodelist, reserved_nodes = get_nodes(all_nodes, "timeout 3 sinfo -p gpu --Node -h")
+      gpus_per_node = 2
     maxnode = max(map(len, nodelist))
     SBASE = "/scratch/.gpudash"
-    if show_cryoem: print("Warning: -c, --cryoem flag not valid on della")
   elif host.startswith("tigercpu") or host.startswith("tigergpu") or host.startswith("tiger-cryoem"):
     title = "TigerGPU"
     comp_nodes_base = "tiger-"
-    if show_cryoem:
-      all_nodes = [comp_nodes_base + "h" + str(i) + 'g' + str(j) for i in [19, 20, 21, 23, 24, 25, 26] for j in [1, 2]]
-      all_nodes.append(comp_nodes_base + "i26g1")
-      all_nodes.append(comp_nodes_base + "i26g2")
-      nodelist, reserved_nodes = get_nodes(all_nodes, "timeout 3 sinfo -p cryoem --Node -h")
-    else:
-      all_nodes = [comp_nodes_base + "i" + str(i) + 'g' + str(j + 1) for i in range(19, 24) for j in range(16)]
-      nodelist, reserved_nodes = get_nodes(all_nodes, "timeout 3 sinfo -p gpu --Node -h")
+    all_nodes = [comp_nodes_base + "i" + str(i) + 'g' + str(j + 1) for i in range(19, 24) for j in range(16)]
+    nodelist, reserved_nodes = get_nodes(all_nodes, "timeout 3 sinfo -p gpu --Node -h")
     gpus_per_node = 4
     maxnode = max(map(len, nodelist))
     SBASE = "/scratch/.gpudash"
+    if show_cryoem: print("Warning: -c, --cryoem flag not valid on tiger")
   elif host.startswith("traverse"):
     title = "TRAVERSE GPU"
     comp_nodes_base = "traverse-k0"
@@ -218,7 +220,7 @@ if __name__ == "__main__":
     SBASE = "/scratch/.gpudash"
     if show_cryoem: print("Warning: -c, --cryoem flag not valid on traverse")
   else:
-    print(f"{host} is unknown. Please use della-gpu, della8, tigercpu, tigergpu, tiger-cryoem or traverse.")
+    print(f"{host} is unknown. Please use della-gpu, tigercpu, tigergpu, tiger-cryoem or traverse.")
     sys.exit(0)
 
   # read column files
