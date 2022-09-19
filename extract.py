@@ -12,20 +12,19 @@ num_columns = 7
 
 host = gethostname()
 if host.startswith("della"):
-  comp_nodes_base = "della-i14g"
-  nodelist = [comp_nodes_base + str(g) for g in range(1, 21)]
-  gpus_per_node = 2
+  comp_nodes_base = "della-"
+  nodelist = [comp_nodes_base + "i14g" + str(g) for g in range(1, 21)]
+  # start cryoem
+  nodelist_cryo = [comp_nodes_base + "l0" + str(h) + "g" + str(g) for h in range(6, 10) for g in range(1, 10)]
+  nodelist_cryo.remove("della-l07g1")
+  nodelist_cryo.append("della-l06g10")
+  nodelist_cryo.append("della-l06g11")
+  # end cryoem
   BASE = "/home/jdh4/bin/gpus"
   SBASE = "/scratch/.gpudash"
 elif host.startswith("tigercpu") or host.startswith("tigergpu"):
-  comp_nodes_base = "tiger-"
-  nodelist = [comp_nodes_base + "i" + str(i) + 'g' + str(j + 1) for i in range(19, 24) for j in range(16)]
-  # start cryoem
-  nodelist_cryo = [comp_nodes_base + "h" + str(i) + 'g' + str(j) for i in [19, 20, 21, 23, 24, 25, 26] for j in [1, 2]]
-  nodelist_cryo.append("tiger-i26g1")
-  nodelist_cryo.append("tiger-i26g2")
-  nodelist += nodelist_cryo
-  # end cryoem
+  comp_nodes_base = "tiger-i"
+  nodelist = [comp_nodes_base + str(i) + 'g' + str(j + 1) for i in range(19, 24) for j in range(16)]
   gpus_per_node = 4
   BASE = "/home/jdh4/bin/gpus"
   SBASE = "/scratch/.gpudash"
@@ -50,10 +49,22 @@ with open(f"{BASE}/master.uid") as infile:
 
 # initialize dictionary
 # tuple is (username, util, jobid)
-stats = {}
-for node in nodelist:
-  for gpu_index in range(gpus_per_node):
-    stats[(node, str(gpu_index))] = ("OFFLINE", "N/A", "N/A")
+if host.startswith("della"):
+  stats = {}
+  for node in nodelist:
+    gpus_per_node = 2
+    for gpu_index in range(gpus_per_node):
+      stats[(node, str(gpu_index))] = ("OFFLINE", "N/A", "N/A")
+  for node in nodelist_cryo:
+    gpus_per_node = 4
+    for gpu_index in range(gpus_per_node):
+      stats[(node, str(gpu_index))] = ("OFFLINE", "N/A", "N/A")
+  nodelist += nodelist_cryo
+else:
+  stats = {}
+  for node in nodelist:
+    for gpu_index in range(gpus_per_node):
+      stats[(node, str(gpu_index))] = ("OFFLINE", "N/A", "N/A")
 
 # get latest timestamp
 timestamp        = str(max([int(filename.split(".")[1]) for filename in glob(f"{BASE}/data/util.*")]))
