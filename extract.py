@@ -14,6 +14,8 @@ host = gethostname()
 if host.startswith("della"):
   comp_nodes_base = "della-"
   nodelist = [comp_nodes_base + "i14g" + str(g) for g in range(1, 21)]
+  nodelist80 = [comp_nodes_base + f"l0{h}g{g}" for h in range(1, 5) for g in range(1, 17)] + \
+               [comp_nodes_base + f"l05g{g}" for g in range(1, 7)]
   # start cryoem
   nodelist_cryo = [comp_nodes_base + "l0" + str(h) + "g" + str(g) for h in range(6, 10) for g in range(1, 10)]
   nodelist_cryo.remove("della-l07g1")
@@ -55,11 +57,15 @@ if host.startswith("della"):
     gpus_per_node = 2
     for gpu_index in range(gpus_per_node):
       stats[(node, str(gpu_index))] = ("OFFLINE", "N/A", "N/A")
+  for node in nodelist80:
+    gpus_per_node = 4
+    for gpu_index in range(gpus_per_node):
+      stats[(node, str(gpu_index))] = ("OFFLINE", "N/A", "N/A")
   for node in nodelist_cryo:
     gpus_per_node = 4
     for gpu_index in range(gpus_per_node):
       stats[(node, str(gpu_index))] = ("OFFLINE", "N/A", "N/A")
-  nodelist += nodelist_cryo
+  nodelist += nodelist80 + nodelist_cryo
 else:
   stats = {}
   for node in nodelist:
