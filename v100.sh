@@ -9,4 +9,4 @@ curl -s 'http://vigilant2.sn814:8480/api/v1/query?query=nvidia_gpu_jobId'      >
 
 find ${DATA} -type f -mmin +70 -exec rm -f {} \;
 
-/usr/licensed/anaconda3/2020.11/bin/python /home/jdh4/bin/gpus/extract.py
+/usr/licensed/anaconda3/2022.5/bin/python /home/jdh4/bin/gpus/extract.py
