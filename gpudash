@@ -52,16 +52,29 @@ def get_nodes(all_nodes, cmd):
         nodes.append(line.split()[0])
       if line and (("resv" in line) or ("mig" in line)):
         reserved.append(line.split()[0])
+    reserved.append("della-l01g3")
+    reserved.append("della-l01g4")
+    reserved.append("della-l01g5")
+    reserved.append("della-l01g6")
+    reserved.append("della-l01g7")
+    reserved.append("della-l01g8")
+    reserved.append("della-l01g9")
+    reserved.append("della-l01g10")
+    reserved.append("della-l01g11")
+    #nodes.append("della-l06g12")
     return (nodes, reserved)
 
 def colorize(user, util):
-  if user == "OFFLINE": return padding(user)
+  if user == "OFFLINE":
+    return padding(user)
   text = f"{user}:{util}"
   if text == "root:0":
     return term.on_gray + term.black + padding("IDLE") + term.normal
   if text == "root:N/A":
     return term.on_gray + term.black + padding("NO INFO") + term.normal
   white = term.color_rgb(255,255,255)
+  if isinstance(util, int):
+    util = str(util)
   util = int(util) if util.isdigit() else -1
   if util == -1:
     return term.on_gray + term.black + padding(text) + term.normal
@@ -90,7 +103,6 @@ def construct_dashboard(host):
   for t in times:
     s += padding(t)
   s += "\n"
-  traverse_test_qos = ["traverse-k05g" + str(i) for i in [1, 2, 3, 4]]
   # main dashboard
   global founduser_all_nodes
   founduser_all_nodes = False
@@ -102,9 +114,7 @@ def construct_dashboard(host):
       if gpu_index == "0":
         rows += leftpad(node)
       elif gpu_index == "1" and node in reserved_nodes:
-        if node in traverse_test_qos:
-          rows += leftpad("(test QOS)  ")
-        elif "della-" in node and "g" in node:
+        if "della-" in node and "g" in node:
           rows += leftpad("(MIG/res) ")
         else:
           rows += leftpad("(reserved)")
@@ -119,13 +129,14 @@ def construct_dashboard(host):
         if args.netid == username:
           founduser_per_node = True
           founduser_all_nodes = True
-        if j == len(times) - 1 and username == "OFFLINE": offline += 1
+        if j == len(times) - 1 and username == "OFFLINE":
+          offline += 1
         rows += colorize(username, util)
       rows += "\n"
     if (args.netid == "-1" or founduser_per_node) and offline < gpus_per_node[node]:
       s += rows
   # time labels at bottom of dashboard
-  if not host.startswith("della") and args.netid == "-1":
+  if args.netid == "-1" or (args.netid != "-1" and founduser_all_nodes):
     s += " " * (maxnode + 3)
     for t in times:
       s += padding(t)
@@ -161,6 +172,9 @@ if __name__ == "__main__":
       Show dashboard for all users:
         $ gpudash
 
+      Show dashboard for the current user:
+        $ gpudash --me
+
       Show dashboard for the user aturing:
         $ gpudash -u aturing
 
@@ -174,12 +188,17 @@ if __name__ == "__main__":
         $ gpudash -c -u aturing
     '''))
   psr.add_argument('-u', type=str, action='store', dest='netid',
-    default='-1', help='create dashboard for a single user')
+                   default='-1', help='create dashboard for a single user')
   psr.add_argument('-n', '--no-legend', action='store_true', help='flag to hide the legend')
-  psr.add_argument('-c', '--cryoem',    action='store_true', help='flag to show cryoem nodes')
+  psr.add_argument('-c', '--cryoem', action='store_true', help='flag to show cryoem nodes')
+  psr.add_argument('--me', action='store_true', help='create dashboard for current user')
   args = psr.parse_args()
   show_legend = not args.no_legend
   show_cryoem = args.cryoem
+  if args.me:
+    args.netid = os.getenv("USER")
+    if not args.netid:
+      args.netid = "-1"
 
   # exit if within 4 hours of downtime (which starts at 6 am) or before 2 pm
   right_now = datetime.now()
@@ -193,7 +212,11 @@ if __name__ == "__main__":
 
   # load cluster-specific info
   host = gethostname()
-  if host.startswith("della-gpu") or host.startswith("della8"):
+  if host.startswith("della-gpu") or \
+     host.startswith("della8") or \
+     host.startswith("della9") or \
+     host.startswith("della-milan") or \
+     host.startswith("della-vis1"):
     title = "DELLA-GPU"
     comp_nodes_base = "della-"
     if show_cryoem:
@@ -210,32 +233,14 @@ if __name__ == "__main__":
       all_nodes80 = [comp_nodes_base + f"l0{h}g{g}" for h in range(1, 5) for g in range(1, 17)] + \
                     [comp_nodes_base + f"l05g{g}" for g in range(1, 7)]
       gpus_per_node.update(dict([(node, 4) for node in all_nodes80]))
+      #all_nodes80.append("della-l06g12")
+      #gpus_per_node.update({"della-l06g12":8})
       all_nodes += all_nodes80
       nodelist, reserved_nodes = get_nodes(all_nodes, "timeout 3 sinfo -p gpu,mig --Node -h")
     maxnode = max(map(len, nodelist))
     SBASE = "/scratch/.gpudash"
-  elif host.startswith("tigercpu") or host.startswith("tigergpu") or host.startswith("tiger-cryoem"):
-    title = "TigerGPU"
-    comp_nodes_base = "tiger-"
-    all_nodes = [comp_nodes_base + "i" + str(i) + 'g' + str(j + 1) for i in range(19, 24) for j in range(16)]
-    gpus_per_node = dict([(node, 4) for node in all_nodes])
-    nodelist, reserved_nodes = get_nodes(all_nodes, "timeout 3 sinfo -p gpu --Node -h")
-    maxnode = max(map(len, nodelist))
-    SBASE = "/scratch/.gpudash"
-    if show_cryoem: print("Warning: -c, --cryoem flag not valid on tiger")
-  elif host.startswith("traverse"):
-    title = "TRAVERSE GPU"
-    comp_nodes_base = "traverse-k0"
-    all_nodes = [comp_nodes_base + str(i) + 'g' + str(j + 1) for i in [1, 2, 4, 5] for j in range(12)]
-    all_nodes.remove("traverse-k05g11")
-    all_nodes.remove("traverse-k05g12")
-    gpus_per_node = dict([(node, 4) for node in all_nodes])
-    nodelist, reserved_nodes = get_nodes(all_nodes, "timeout 3 sinfo --Node -h")
-    maxnode = max(map(len, nodelist))
-    SBASE = "/scratch/.gpudash"
-    if show_cryoem: print("Warning: -c, --cryoem flag not valid on traverse")
   else:
-    print(f"{host} is unknown. Please use della-gpu, tigercpu, tigergpu, tiger-cryoem or traverse.")
+    print("gpudash can only be used on Della from della-gpu, della9 or della-vis1.")
     sys.exit(0)
 
   # read column files
