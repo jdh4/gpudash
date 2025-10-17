@@ -1,4 +1,5 @@
 # this script reads three json files and extracts gpu utilization data
+# which are written to file
 
 import os
 import json
@@ -15,13 +16,13 @@ if host.startswith("della"):
   comp_nodes_base = "della-"
   nodelist = [comp_nodes_base + "i14g" + str(g) for g in range(1, 21)]
   nodelist80 = [comp_nodes_base + f"l0{h}g{g}" for h in range(1, 5) for g in range(1, 17)] + \
-               [comp_nodes_base + f"l05g{g}" for g in range(1, 7)]
+               [comp_nodes_base + f"l05g{g}"   for g in range(1, 7)]
   # start cryoem
-  nodelist_cryo = [comp_nodes_base + "l0" + str(h) + "g" + str(g) for h in range(7, 10) for g in range(1, 8)] + \
-                  [comp_nodes_base + "h"  + str(h) + "g" + str(g) for h in range(19, 22) for g in range(1, 5)] 
+  nodelist_cryo = [comp_nodes_base + "l0" + str(h) + "g" + str(g) for h in range(7, 10)  for g in range(1, 8)] + \
+                  [comp_nodes_base + "h"  + str(h) + "g" + str(g) for h in range(19, 22) for g in range(1, 6)]
   nodelist_cryo.remove("della-l07g1")
-  nodelist_cryo.append("della-h19g5")
-  nodelist_cryo.append("della-h21g5")
+  nodelist_cryo.remove("della-h19g5")
+  nodelist_cryo.remove("della-h21g5")
   # end cryoem
   BASE = "/home/jdh4/bin/gpus"
   SBASE = "/scratch/.gpudash"
@@ -32,7 +33,7 @@ elif host.startswith("tigercpu") or host.startswith("tigergpu"):
   BASE = "/home/jdh4/bin/gpus"
   SBASE = "/scratch/.gpudash"
 else:
-  print(f"{host} is unknown. Try running on della-gpu, tigercpu, tigergpu or traverse. Exiting ...")
+  print(f"{host} is unknown. Try running on della-gpu. Exiting ...")
   sys.exit(0)
 
 ###########################################################################
@@ -182,6 +183,8 @@ with open(f"{SBASE}/column.7", "w") as g:
   for u, v in stats.items():
     hostname, gpu_index = u
     username, util, jobid = v
+    if util == "0" and username == "OFFLINE" and jobid == "N/A":
+      username = "root"
     d = {"timestamp":timestamp, "host":hostname, "index":gpu_index, "user":username, "util":util, "jobid":jobid}
     #json.dump(d, f); f.write("\n")
     json.dump(d, g); g.write("\n")
