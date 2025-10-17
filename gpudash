@@ -134,8 +134,8 @@ def construct_dashboard(host):
           offline += 1
         rows += colorize(username, util)
       rows += "\n"
-    # exclude idle nodes with offline < gpus_per_node[node]
-    if (args.netid == "-1" or founduser_per_node) and offline <= gpus_per_node[node]:
+    # offline nodes are hidden in next line due to offline < gpus_per_node[node]
+    if (args.netid == "-1" or founduser_per_node) and offline < gpus_per_node[node]:
       s += rows
   # time labels at bottom of dashboard
   if args.netid == "-1" or (args.netid != "-1" and founduser_all_nodes):
